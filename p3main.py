@@ -33,7 +33,8 @@ def main():
         sys.stderr.write("Not enough command-line arguments provided, exiting.")
         sys.exit(1)
 
-    print("Selected mode:", sys.argv[1])
+    mode = sys.argv[1]
+    print("Selected mode:", mode)
     print("Setup file location:", sys.argv[2])
 
     # 1. Open the setup file using the path in argv[2]
@@ -91,14 +92,40 @@ def main():
     # as separate methods within this class, as separate classes
     # with their own main methods, or as additional code within
     # this main method.
+    if mode == "manual":
+        manual_mode(banker)
+    
+    else:
+        print("ERROR: invalid mode")
+
 
 # fill in other methods here as desired
-#def manual_mode(banker):
-#    go = True
-#    print("manual mode has begun. Please enter release, request, or end commands.")
-#    while go:
-#        input = input()
-#        if
+def manual_mode(banker):
+    go = True
+    print("\nmanual mode has begun. Please enter release, request, or end commands.")
+    while go:
+        command = input().split()
+        if command[0] == "end":
+            go = False
+        
+        elif command[0] == "request" and command[2] == "of" and command[4] == "for":
+            request = [0] * banker.num_resources
+            request[int(command[3])] = int(command[1])
+            if not banker.request_resource(int(command[5]), request):
+                print("\nrequest denied.\n")
+            else:
+                print("\nnew allocation:\n", banker.allocation)
+
+        elif command[0] == "release" and command[2] == "of" and command[4] == "for":
+            release = [0] * banker.num_resources
+            release[int(command[3])] = int(command[1])
+            banker.release(int(command[5]), release)
+            print("\nnew allocation:\n", banker.allocation)
+
+        else:
+            print("\ninvalid command. Please enter valid command.")
+    
+    print("\nnow exiting manual mode.")
 
 class BankersAlgorithm:
     def __init__(self, available, max, allocation, request) -> None:
@@ -127,7 +154,7 @@ class BankersAlgorithm:
                 break
         return all(finish)
     
-    def request(self, pID, request):
+    def request_resource(self, pID, request):
         for i in range(self.num_resources):
             if request[i] > self.need[pID][i] or request[i] > self.available[i]:
                 return False
@@ -153,10 +180,10 @@ class BankersAlgorithm:
                 print("ERROR: invalid release")
                 return
             
-            available[i] += request[i]
-            self.allocation[pID][i] -= request[i]
-            self.max[pID][i] -= request[i]
-            self.need[pID][i] -= request[i]
+            self.available[i] += release[i]
+            self.allocation[pID][i] -= release[i]
+            self.max[pID][i] -= release[i]
+            self.need[pID][i] -= release[i]
 
     
 
