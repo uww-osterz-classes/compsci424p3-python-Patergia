@@ -6,6 +6,8 @@ Name:
 import os
 import sys
 import threading  # standard Python threading library
+import time
+import random
 
 # (Comments are just suggestions. Feel free to modify or delete them.)
 
@@ -84,9 +86,10 @@ def main():
     # in the Program 3 instructions
     banker = BankersAlgorithm(available, max, allocation, request)
     if banker.is_safe_state():
-        print("is safe state")
+        print("\ninitial conditions are in a safe state\n")
     else:
-        print("unsafe")
+        print("\nERROR: initial conditions are unsafe. Terminating")
+        return 2
     # 5. Go into either manual or automatic mode, depending on
     # the value of args[0]; you could implement these two modes
     # as separate methods within this class, as separate classes
@@ -95,6 +98,9 @@ def main():
     if mode == "manual":
         manual_mode(banker)
     
+    elif mode == "automatic":
+        automatic_mode(banker)
+
     else:
         print("ERROR: invalid mode")
 
@@ -119,16 +125,55 @@ def manual_mode(banker):
         elif command[0] == "release" and command[2] == "of" and command[4] == "for":
             release = [0] * banker.num_resources
             release[int(command[3])] = int(command[1])
-            banker.release(int(command[5]), release)
-            print("\nnew allocation:\n", banker.allocation)
+            if not banker.release(int(command[5]), release):
+                print("\nERROR: invalid release.")
+            else:
+                print("\nnew allocation:\n", banker.allocation)
 
         else:
             print("\ninvalid command. Please enter valid command.")
     
     print("\nnow exiting manual mode.")
 
+def automatic_mode(bankers):
+    print("\nautomatic mode is now starting\n")
+    processes = []
+    for i in range(bankers.num_processes):
+        process = threading.Thread(target=process_simulator, args=(bankers, i))
+        processes.append(process)
+        process.start()
+    for process in processes:
+        process.join()
+    print("\n\nnow exiting automatic mode\n")
+
+
+def process_simulator(bankers, pID):
+    for i in range(3):
+        time.sleep(random.randrange(5))
+        #request
+        request = [0] * bankers.num_resources
+        request[int(random.randrange(bankers.num_resources))] = int(random.randrange(4))
+        if not bankers.request_resource(pID, request):
+            print(f"\nprocess {pID} request of {request} is denied")
+        else:
+            print(f"\nprocess {pID}'s request of {request} granted. \n\nAllocation:\n", bankers.allocation)
+
+
+        time.sleep(random.randrange(5))
+        #release
+        release = [0] * bankers.num_resources
+        release[int(random.randrange(bankers.num_resources))] = int(random.randrange(4))
+        if not bankers.release(pID, release):
+            print(f"\nprocess {pID}'s release of {release} was invalid")
+        else:
+            print(f"\nprocess {pID} released {release}\n\nAllocation:\n", bankers.allocation)
+
+
+
+
 class BankersAlgorithm:
     def __init__(self, available, max, allocation, request) -> None:
+        self.semaphore = threading.Semaphore(1)
         self.available = available
         self.max = max
         self.allocation = allocation
@@ -155,35 +200,36 @@ class BankersAlgorithm:
         return all(finish)
     
     def request_resource(self, pID, request):
-        for i in range(self.num_resources):
-            if request[i] > self.need[pID][i] or request[i] > self.available[i]:
+        with self.semaphore:
+            for i in range(self.num_resources):
+                if request[i] > self.need[pID][i] or request[i] > self.available[i]:
+                    return False
+
+            for i in range(self.num_resources):
+                self.allocation[pID][i] += request[i]
+                self.need[pID][i] -= request[i]
+                self.available[i] -= request[i]
+
+            if self.is_safe_state():
+                return True
+            else:
+                for i in range(self.num_resources):
+                    self.allocation[pID][i] -= request[i]
+                    self.need[pID][i] += request[i]
+                    self.available[i] += request[i]
                 return False
         
-        for i in range(self.num_resources):
-            self.allocation[pID][i] += request[i]
-            self.need[pID][i] -= request[i]
-            self.available[i] -= request[i]
-        
-        if self.is_safe_state():
-            return True
-        else:
-            for i in range(self.num_resources):
-                self.allocation[pID][i] -= request[i]
-                self.need[pID][i] += request[i]
-                self.available[i] += request[i]
-            return False
-        
     def release(self, pID, release):
-        valid = True
-        for i in range(self.num_resources):
-            if release[i] < 0 or allocation[pID][i] - release[i] < 0:
-                print("ERROR: invalid release")
-                return
-            
-            self.available[i] += release[i]
-            self.allocation[pID][i] -= release[i]
-            self.max[pID][i] -= release[i]
-            self.need[pID][i] -= release[i]
+        with self.semaphore:
+            for i in range(self.num_resources):
+                if release[i] < 0 or allocation[pID][i] - release[i] < 0:
+                    return False
+
+                self.available[i] += release[i]
+                self.allocation[pID][i] -= release[i]
+                self.max[pID][i] -= release[i]
+                self.need[pID][i] -= release[i]
+        return True
 
     
 
