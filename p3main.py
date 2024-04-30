@@ -162,7 +162,9 @@ def process_simulator(bankers, pID):
         time.sleep(random.randrange(5))
         #release
         release = [0] * bankers.num_resources
-        release[int(random.randrange(bankers.num_resources))] = int(random.randrange(4))
+        rr = int(random.randrange(bankers.num_resources))
+        if rr > 0:
+            release[rr] = int(random.randrange(rr))
         if not bankers.release(pID, release):
             print(f"\nprocess {pID}'s release of {release} was invalid")
         else:
